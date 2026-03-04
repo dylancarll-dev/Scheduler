@@ -48,7 +48,6 @@ export default async function handler(req, res) {
       location: address,
       start: { dateTime: slotStart },
       end: { dateTime: slotEnd },
-      attendees: email ? [{ email }] : [],
       reminders: {
         useDefault: false,
         overrides: [
@@ -62,6 +61,6 @@ export default async function handler(req, res) {
     res.status(200).json({ success: true });
   } catch (err) {
     console.error("book error:", err);
-    res.status(500).json({ error: String(err?.message || err) });
+    res.status(500).json({ error: "Failed to create booking" });
   }
 }

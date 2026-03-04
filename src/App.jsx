@@ -442,12 +442,6 @@ export default function App() {
                 <strong>{form.jobType}</strong>
               </div>
             </div>
-            {form.email && (
-              <p className="confirm-note">
-                A calendar invite has been sent to{" "}
-                <strong>{form.email}</strong>.
-              </p>
-            )}
             <p className="confirm-note">
               Have questions? We'll be in touch. Thank you for choosing Frog
               Splash Coatings!
