@@ -4,11 +4,10 @@ import logo from "./Back of Shirt Logo.png";
 // ─── CONFIG ─────────────────────────────────────────────────────────────────
 const CONFIG = {
   GOOGLE_MAPS_API_KEY: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
-  BUSINESS_NAME: import.meta.env.VITE_BUSINESS_NAME || "Frog Splash Coatings",
+  BUSINESS_NAME: import.meta.env.VITE_BUSINESS_NAME || "frog spash coatin",
   ESTIMATE_DURATION_MIN: 30,
   BUFFER_MIN: 15,
-  WORK_START_HOUR: 8,
-  WORK_END_HOUR: 18,
+  // Mon–Fri 7:30 AM–6:00 PM | Sat 7:30 AM–1:00 PM (enforced server-side)
   DAYS_AHEAD: 14,
 };
 
@@ -164,7 +163,7 @@ export default function App() {
     today.setHours(0, 0, 0, 0);
     for (let i = 1; i <= CONFIG.DAYS_AHEAD; i++) {
       const d = new Date(today.getTime() + i * 86400000);
-      if (d.getDay() !== 0) days.push(d); // skip Sundays
+      if (d.getDay() !== 0) days.push(d); // skip Sundays (Mon–Sat only)
     }
     return days;
   }

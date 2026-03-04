@@ -2,10 +2,33 @@
 // Vercel serverless function — uses Google service account (no customer auth needed)
 import { google } from "googleapis";
 
-const WORK_START_HOUR = 8;
-const WORK_END_HOUR = 18;
 const ESTIMATE_DURATION_MIN = 30;
 const BUFFER_MIN = 15;
+
+// Returns UTC offset for America/New_York: -4 (EDT) or -5 (EST)
+// Uses the US DST rule: starts 2nd Sunday of March, ends 1st Sunday of November
+function easternOffsetHours(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  if (m < 3 || m > 11) return -5;
+  if (m > 3 && m < 11) return -4;
+  // Returns day-of-month of the Nth Sunday in a given month
+  const nthSunday = (yr, mo, n) => {
+    const dow = new Date(Date.UTC(yr, mo - 1, 1)).getUTCDay(); // 0=Sun
+    return (dow === 0 ? 1 : 8 - dow) + (n - 1) * 7;
+  };
+  if (m === 3) return d >= nthSunday(y, 3, 2) ? -4 : -5; // on/after 2nd Sun = EDT
+  return d < nthSunday(y, 11, 1) ? -4 : -5;              // before 1st Sun Nov = EDT
+}
+
+// Returns a Date at the given Eastern local time on dateStr
+function makeEasternDate(dateStr, hour, minute) {
+  const off = easternOffsetHours(dateStr);
+  const sign = off < 0 ? "-" : "+";
+  const h = String(hour).padStart(2, "0");
+  const m = String(minute).padStart(2, "0");
+  const o = String(Math.abs(off)).padStart(2, "0");
+  return new Date(`${dateStr}T${h}:${m}:00${sign}${o}:00`);
+}
 
 async function getDriveMinutes(origin, destination) {
   const key = process.env.GOOGLE_MAPS_API_KEY;
@@ -50,11 +73,13 @@ export default async function handler(req, res) {
     const calendar = google.calendar({ version: "v3", auth });
     const calendarId = process.env.GOOGLE_CALENDAR_ID;
 
-    // Build day boundaries in local time using the date string directly
-    const dayStart = new Date(`${date}T00:00:00`);
-    dayStart.setHours(WORK_START_HOUR, 0, 0, 0);
-    const dayEnd = new Date(`${date}T00:00:00`);
-    dayEnd.setHours(WORK_END_HOUR, 0, 0, 0);
+    // Build day boundaries in Eastern Time (America/New_York)
+    // Mon–Fri: 7:30 AM – 6:00 PM ET | Sat: 7:30 AM – 1:00 PM ET | Sun: closed
+    const dayOfWeek = new Date(`${date}T12:00:00Z`).getUTCDay(); // 0=Sun … 6=Sat
+    if (dayOfWeek === 0) return res.status(200).json({ slots: [] });
+
+    const dayStart = makeEasternDate(date, 7, 30);
+    const dayEnd = makeEasternDate(date, dayOfWeek === 6 ? 13 : 18, 0);
 
     const eventsResp = await calendar.events.list({
       calendarId,
