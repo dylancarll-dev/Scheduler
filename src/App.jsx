@@ -49,6 +49,7 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [slots, setSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
+  const [pendingSlot, setPendingSlot] = useState(null);
 
   function fullAddress() {
     return `${form.street}, ${form.city}, GA ${form.zip}`;
@@ -356,19 +357,58 @@ export default function App() {
               {slots.map((s, i) => (
                 <button
                   key={i}
-                  className={`slot ${selectedSlot === s ? "selected" : ""}`}
-                  onClick={() => bookSlot(s)}
-                  disabled={loading}
+                  className="slot"
+                  onClick={() => setPendingSlot(s)}
                 >
-                  <strong>
-                    {loading && selectedSlot === s ? "Booking…" : formatTime(s.start)}
-                  </strong>
+                  <strong>{formatTime(s.start)}</strong>
                   <span>to {formatTime(s.end)}</span>
                 </button>
               ))}
             </div>
 
             {bookingError && <div className="error">{bookingError}</div>}
+
+            {/* Confirmation modal */}
+            {pendingSlot && (
+              <div className="modal-overlay">
+                <div className="modal">
+                  <h3>Confirm Your Appointment</h3>
+                  <div className="modal-details">
+                    <div className="modal-row">
+                      <span>Date</span>
+                      <strong>
+                        {selectedDate &&
+                          `${dayNames[selectedDate.getDay()]}, ${monthNames[selectedDate.getMonth()]} ${selectedDate.getDate()}`}
+                      </strong>
+                    </div>
+                    <div className="modal-row">
+                      <span>Time</span>
+                      <strong>{formatTime(pendingSlot.start)} – {formatTime(pendingSlot.end)}</strong>
+                    </div>
+                    <div className="modal-row">
+                      <span>Address</span>
+                      <strong>{fullAddress()}</strong>
+                    </div>
+                  </div>
+                  <div className="modal-actions">
+                    <button
+                      className="btn primary"
+                      onClick={() => { bookSlot(pendingSlot); setPendingSlot(null); }}
+                      disabled={loading}
+                    >
+                      {loading ? "Booking…" : "Yes, Book It →"}
+                    </button>
+                    <button
+                      className="btn ghost"
+                      onClick={() => setPendingSlot(null)}
+                      disabled={loading}
+                    >
+                      Go Back
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <button className="btn ghost" onClick={() => setStep(2)}>
               ← Choose Another Day
