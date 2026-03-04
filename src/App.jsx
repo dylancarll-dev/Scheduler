@@ -13,11 +13,12 @@ const CONFIG = {
 
 // ─── MAPS LOADER ─────────────────────────────────────────────────────────────
 function loadMapsJS() {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     if (window.google?.maps) return resolve();
     const script = document.createElement("script");
     script.src = `https://maps.googleapis.com/maps/api/js?key=${CONFIG.GOOGLE_MAPS_API_KEY}&libraries=places`;
     script.onload = resolve;
+    script.onerror = reject;
     document.head.appendChild(script);
   });
 }
@@ -40,7 +41,7 @@ function StepIndicator({ step }) {
   );
 }
 
-function AddressAutocomplete({ value, onChange, placeholder }) {
+function AddressAutocomplete({ value, onChange, onVerified, placeholder }) {
   const [ref, setRef] = useState(null);
 
   useEffect(() => {
@@ -51,7 +52,10 @@ function AddressAutocomplete({ value, onChange, placeholder }) {
     });
     ac.addListener("place_changed", () => {
       const place = ac.getPlace();
-      onChange(place.formatted_address || ref.value);
+      if (place.formatted_address) {
+        onChange(place.formatted_address);
+        onVerified(true);
+      }
     });
   }, [ref]);
 
@@ -60,7 +64,7 @@ function AddressAutocomplete({ value, onChange, placeholder }) {
       ref={setRef}
       type="text"
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(e) => { onChange(e.target.value); onVerified(false); }}
       placeholder={placeholder}
       className="input"
     />
@@ -74,6 +78,8 @@ export default function App() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState(null);
   const [bookingError, setBookingError] = useState(null);
+  const [mapsReady, setMapsReady] = useState(false);
+  const [addressVerified, setAddressVerified] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -91,7 +97,7 @@ export default function App() {
   const [selectedSlot, setSelectedSlot] = useState(null);
 
   useEffect(() => {
-    loadMapsJS();
+    loadMapsJS().then(() => setMapsReady(true)).catch(() => setMapsReady(false));
   }, []);
 
   // Load slots from backend when date selected
@@ -233,8 +239,15 @@ export default function App() {
                 <AddressAutocomplete
                   value={form.address}
                   onChange={(v) => setForm({ ...form, address: v })}
+                  onVerified={setAddressVerified}
                   placeholder="123 Main St, City, State"
                 />
+                {mapsReady && form.address && !addressVerified && (
+                  <span className="field-hint">Select an address from the dropdown to verify it</span>
+                )}
+                {mapsReady && addressVerified && (
+                  <span className="field-hint verified">✓ Address verified</span>
+                )}
               </label>
               <label className="full">
                 Type of Service *
@@ -297,7 +310,8 @@ export default function App() {
             <button
               className="btn primary"
               disabled={
-                !form.name || !form.phone || !form.address || !form.jobType || !form.floorCondition
+                !form.name || !form.phone || !form.address || !form.jobType || !form.floorCondition ||
+                (mapsReady && !addressVerified)
               }
               onClick={() => setStep(2)}
             >
