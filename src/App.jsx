@@ -364,7 +364,6 @@ export default function App() {
                     {loading && selectedSlot === s ? "Booking…" : formatTime(s.start)}
                   </strong>
                   <span>to {formatTime(s.end)}</span>
-                  {s.travelNote && <em>{s.travelNote}</em>}
                 </button>
               ))}
             </div>
