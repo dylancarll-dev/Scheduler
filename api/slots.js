@@ -5,29 +5,26 @@ import { google } from "googleapis";
 const ESTIMATE_DURATION_MIN = 30;
 const BUFFER_MIN = 15;
 
-// Returns UTC offset for America/New_York: -4 (EDT) or -5 (EST)
-// Uses the US DST rule: starts 2nd Sunday of March, ends 1st Sunday of November
-function easternOffsetHours(dateStr) {
+// Returns UTC offset in ms for America/New_York (-5h EST, -4h EDT)
+// US DST rule: 2nd Sunday of March → 1st Sunday of November
+function easternOffsetMs(dateStr) {
   const [y, m, d] = dateStr.split("-").map(Number);
-  if (m < 3 || m > 11) return -5;
-  if (m > 3 && m < 11) return -4;
-  // Returns day-of-month of the Nth Sunday in a given month
+  if (m < 3 || m > 11) return -5 * 3600000;
+  if (m > 3 && m < 11) return -4 * 3600000;
   const nthSunday = (yr, mo, n) => {
-    const dow = new Date(Date.UTC(yr, mo - 1, 1)).getUTCDay(); // 0=Sun
+    const dow = new Date(Date.UTC(yr, mo - 1, 1)).getUTCDay();
     return (dow === 0 ? 1 : 8 - dow) + (n - 1) * 7;
   };
-  if (m === 3) return d >= nthSunday(y, 3, 2) ? -4 : -5; // on/after 2nd Sun = EDT
-  return d < nthSunday(y, 11, 1) ? -4 : -5;              // before 1st Sun Nov = EDT
+  const isEDT = m === 3 ? d >= nthSunday(y, 3, 2) : d < nthSunday(y, 11, 1);
+  return (isEDT ? -4 : -5) * 3600000;
 }
 
-// Returns a Date at the given Eastern local time on dateStr
+// Returns a UTC Date for the given Eastern local time on dateStr (pure arithmetic, no string parsing)
 function makeEasternDate(dateStr, hour, minute) {
-  const off = easternOffsetHours(dateStr);
-  const sign = off < 0 ? "-" : "+";
-  const h = String(hour).padStart(2, "0");
-  const m = String(minute).padStart(2, "0");
-  const o = String(Math.abs(off)).padStart(2, "0");
-  return new Date(`${dateStr}T${h}:${m}:00${sign}${o}:00`);
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const utcMidnight = Date.UTC(y, m - 1, d);
+  const localMs = (hour * 60 + minute) * 60000;
+  return new Date(utcMidnight + localMs - easternOffsetMs(dateStr));
 }
 
 async function getDriveMinutes(origin, destination) {
