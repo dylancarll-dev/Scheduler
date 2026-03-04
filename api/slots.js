@@ -157,6 +157,6 @@ export default async function handler(req, res) {
     res.status(200).json({ slots });
   } catch (err) {
     console.error("slots error:", err);
-    res.status(500).json({ error: "Failed to fetch slots" });
+    res.status(500).json({ error: String(err?.message || err) });
   }
 }
