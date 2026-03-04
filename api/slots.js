@@ -53,13 +53,23 @@ async function getDriveMinutes(origin, destination) {
   return 30;
 }
 
+function isValidDateStr(str) {
+  if (typeof str !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(str)) return false;
+  const d = new Date(str + "T12:00:00Z");
+  return !isNaN(d.getTime());
+}
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { date, address } = req.query;
-  if (!date) return res.status(400).json({ error: "Missing date parameter" });
+  const date    = typeof req.query.date    === "string" ? req.query.date.trim()    : "";
+  const address = typeof req.query.address === "string" ? req.query.address.trim().slice(0, 300) : "";
+
+  if (!isValidDateStr(date)) {
+    return res.status(400).json({ error: "Invalid or missing date parameter" });
+  }
 
   try {
     const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
@@ -156,7 +166,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({ slots });
   } catch (err) {
-    console.error("slots error:", err);
+    console.error("slots error:", err.message);
     res.status(500).json({ error: "Failed to fetch slots" });
   }
 }
