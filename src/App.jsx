@@ -8,6 +8,17 @@ const CONFIG = {
 };
 
 // ─── COMPONENTS ──────────────────────────────────────────────────────────────
+function SuccessCheck() {
+  return (
+    <div className="success-check">
+      <svg viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
+        <circle className="check-circle" cx="26" cy="26" r="25" />
+        <path className="check-path" d="M14 27l8 8 16-16" />
+      </svg>
+    </div>
+  );
+}
+
 function StepIndicator({ step }) {
   const steps = ["Your Info", "Pick a Date", "Choose a Time", "Confirmed"];
   return (
@@ -419,8 +430,9 @@ export default function App() {
         {/* STEP 4 – Confirmed */}
         {step === 4 && (
           <div className="card confirm-card">
-            <div className="confirm-icon">✅</div>
-            <h2>You're Booked!</h2>
+            <SuccessCheck />
+            <h2>You're all set!</h2>
+            <p className="confirm-subtitle">Your estimate has been scheduled.</p>
             <div className="confirm-details">
               <div className="detail-row">
                 <span>Name</span>
