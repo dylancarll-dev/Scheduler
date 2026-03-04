@@ -1,6 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500;600&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+button { font-family: inherit; color: var(--text); -webkit-appearance: none; appearance: none; }
+/* iOS Safari date/phone detection turns text blue — override it */
+a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
 
 :root {
   --bg: #f5f2ee;
@@ -209,6 +212,7 @@ header h1 {
   border-radius: 12px;
   border: 1.5px solid var(--border);
   background: var(--bg);
+  color: var(--text);
   cursor: pointer;
   transition: all 0.15s;
   gap: 2px;

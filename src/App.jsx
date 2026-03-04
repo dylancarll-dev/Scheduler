@@ -1,27 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import logo from "./Back of Shirt Logo.png";
 
 // ─── CONFIG ─────────────────────────────────────────────────────────────────
 const CONFIG = {
-  GOOGLE_MAPS_API_KEY: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
   BUSINESS_NAME: import.meta.env.VITE_BUSINESS_NAME || "Frog Splash Coatings",
-  ESTIMATE_DURATION_MIN: 30,
-  BUFFER_MIN: 15,
-  // Mon–Fri 7:30 AM–6:00 PM | Sat 7:30 AM–1:00 PM (enforced server-side)
   DAYS_AHEAD: 14,
 };
-
-// ─── MAPS LOADER ─────────────────────────────────────────────────────────────
-function loadMapsJS() {
-  return new Promise((resolve, reject) => {
-    if (window.google?.maps) return resolve();
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${CONFIG.GOOGLE_MAPS_API_KEY}&libraries=places`;
-    script.onload = resolve;
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
-}
 
 // ─── COMPONENTS ──────────────────────────────────────────────────────────────
 function StepIndicator({ step }) {
@@ -41,36 +25,6 @@ function StepIndicator({ step }) {
   );
 }
 
-function AddressAutocomplete({ value, onChange, onVerified, placeholder }) {
-  const [ref, setRef] = useState(null);
-
-  useEffect(() => {
-    if (!ref || !window.google?.maps) return;
-    const ac = new window.google.maps.places.Autocomplete(ref, {
-      types: ["address"],
-      componentRestrictions: { country: "us" },
-    });
-    ac.addListener("place_changed", () => {
-      const place = ac.getPlace();
-      if (place.formatted_address) {
-        onChange(place.formatted_address);
-        onVerified(true);
-      }
-    });
-  }, [ref]);
-
-  return (
-    <input
-      ref={setRef}
-      type="text"
-      value={value}
-      onChange={(e) => { onChange(e.target.value); onVerified(false); }}
-      placeholder={placeholder}
-      className="input"
-    />
-  );
-}
-
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [step, setStep] = useState(1);
@@ -78,14 +32,14 @@ export default function App() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState(null);
   const [bookingError, setBookingError] = useState(null);
-  const [mapsReady, setMapsReady] = useState(false);
-  const [addressVerified, setAddressVerified] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
     phone: "",
     email: "",
-    address: "",
+    street: "",
+    city: "",
+    zip: "",
     jobType: "",
     floorCondition: "",
     hearAboutUs: "",
@@ -96,9 +50,9 @@ export default function App() {
   const [slots, setSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
 
-  useEffect(() => {
-    loadMapsJS().then(() => setMapsReady(true)).catch(() => setMapsReady(false));
-  }, []);
+  function fullAddress() {
+    return `${form.street}, ${form.city}, GA ${form.zip}`;
+  }
 
   // Load slots from backend when date selected
   async function handleDateSelect(date) {
@@ -111,7 +65,7 @@ export default function App() {
 
     try {
       const dateStr = date.toISOString().split("T")[0];
-      const params = new URLSearchParams({ date: dateStr, address: form.address });
+      const params = new URLSearchParams({ date: dateStr, address: fullAddress() });
       const resp = await fetch(`/api/slots?${params}`);
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Failed to load slots");
@@ -129,9 +83,9 @@ export default function App() {
     setSlotsLoading(false);
   }
 
-  // Submit booking to backend
-  async function bookSlot() {
-    if (!selectedSlot) return;
+  // Submit booking — called directly when user clicks a time slot
+  async function bookSlot(slot) {
+    setSelectedSlot(slot);
     setLoading(true);
     setBookingError(null);
 
@@ -143,13 +97,13 @@ export default function App() {
           name: form.name,
           phone: form.phone,
           email: form.email,
-          address: form.address,
+          address: fullAddress(),
           jobType: form.jobType,
           floorCondition: form.floorCondition,
           hearAboutUs: form.hearAboutUs,
           notes: form.notes,
-          slotStart: selectedSlot.start.toISOString(),
-          slotEnd: selectedSlot.end.toISOString(),
+          slotStart: slot.start.toISOString(),
+          slotEnd: slot.end.toISOString(),
         }),
       });
       const data = await resp.json();
@@ -157,6 +111,7 @@ export default function App() {
       setStep(4);
     } catch (_) {
       setBookingError("Booking failed. Please try again.");
+      setSelectedSlot(null);
     }
 
     setLoading(false);
@@ -169,7 +124,7 @@ export default function App() {
     today.setHours(0, 0, 0, 0);
     for (let i = 1; i <= CONFIG.DAYS_AHEAD; i++) {
       const d = new Date(today.getTime() + i * 86400000);
-      if (d.getDay() !== 0) days.push(d); // skip Sundays (Mon–Sat only)
+      if (d.getDay() !== 0) days.push(d); // skip Sundays
     }
     return days;
   }
@@ -188,6 +143,15 @@ export default function App() {
     h = h % 12 || 12;
     return `${h}:${m} ${ampm}`;
   }
+
+  const step1Valid =
+    form.name.trim() &&
+    form.phone.trim() &&
+    form.street.trim() &&
+    form.city.trim() &&
+    form.zip.trim() &&
+    form.jobType &&
+    form.floorCondition;
 
   return (
     <div className="app">
@@ -224,7 +188,7 @@ export default function App() {
                   type="tel"
                 />
               </label>
-              <label>
+              <label className="full">
                 Email
                 <input
                   className="input"
@@ -234,20 +198,35 @@ export default function App() {
                   type="email"
                 />
               </label>
-              <label>
-                Service Address *
-                <AddressAutocomplete
-                  value={form.address}
-                  onChange={(v) => setForm({ ...form, address: v })}
-                  onVerified={setAddressVerified}
-                  placeholder="123 Main St, City, State"
+              <label className="full">
+                Street Address *
+                <input
+                  className="input"
+                  value={form.street}
+                  onChange={(e) => setForm({ ...form, street: e.target.value })}
+                  placeholder="123 Main St"
                 />
-                {mapsReady && form.address && !addressVerified && (
-                  <span className="field-hint">Select an address from the dropdown to verify it</span>
-                )}
-                {mapsReady && addressVerified && (
-                  <span className="field-hint verified">✓ Address verified</span>
-                )}
+              </label>
+              <label>
+                City *
+                <input
+                  className="input"
+                  value={form.city}
+                  onChange={(e) => setForm({ ...form, city: e.target.value })}
+                  placeholder="Savannah"
+                />
+              </label>
+              <label>
+                ZIP Code *
+                <input
+                  className="input"
+                  value={form.zip}
+                  onChange={(e) => setForm({ ...form, zip: e.target.value })}
+                  placeholder="31401"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={5}
+                />
               </label>
               <label className="full">
                 Type of Service *
@@ -267,9 +246,7 @@ export default function App() {
                 <select
                   className="input"
                   value={form.floorCondition}
-                  onChange={(e) =>
-                    setForm({ ...form, floorCondition: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, floorCondition: e.target.value })}
                 >
                   <option value="">Select condition…</option>
                   <option>Good condition</option>
@@ -283,9 +260,7 @@ export default function App() {
                 <select
                   className="input"
                   value={form.hearAboutUs}
-                  onChange={(e) =>
-                    setForm({ ...form, hearAboutUs: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, hearAboutUs: e.target.value })}
                 >
                   <option value="">Select one…</option>
                   <option>Google Search</option>
@@ -309,10 +284,7 @@ export default function App() {
             </div>
             <button
               className="btn primary"
-              disabled={
-                !form.name || !form.phone || !form.address || !form.jobType || !form.floorCondition ||
-                (mapsReady && !addressVerified)
-              }
+              disabled={!step1Valid}
               onClick={() => setStep(2)}
             >
               Choose a Date →
@@ -333,9 +305,7 @@ export default function App() {
                 <button
                   key={i}
                   className={`cal-day ${
-                    selectedDate?.toDateString() === d.toDateString()
-                      ? "selected"
-                      : ""
+                    selectedDate?.toDateString() === d.toDateString() ? "selected" : ""
                   }`}
                   onClick={() => handleDateSelect(d)}
                 >
@@ -362,7 +332,7 @@ export default function App() {
               </span>
             </h2>
             <p className="sub">
-              Times are calculated based on travel distance from our other
+              Tap a time to book it. Times are based on travel from our other
               appointments that day.
             </p>
 
@@ -378,10 +348,7 @@ export default function App() {
             {!slotsLoading && !slotsError && slots.length === 0 && (
               <div className="no-slots">
                 <span>😔</span>
-                <p>
-                  No available times on this day. Please go back and choose
-                  another date.
-                </p>
+                <p>No available times on this day. Please go back and choose another date.</p>
               </div>
             )}
 
@@ -390,30 +357,17 @@ export default function App() {
                 <button
                   key={i}
                   className={`slot ${selectedSlot === s ? "selected" : ""}`}
-                  onClick={() => setSelectedSlot(s)}
+                  onClick={() => bookSlot(s)}
+                  disabled={loading}
                 >
-                  <strong>{formatTime(s.start)}</strong>
+                  <strong>
+                    {loading && selectedSlot === s ? "Booking…" : formatTime(s.start)}
+                  </strong>
                   <span>to {formatTime(s.end)}</span>
                   {s.travelNote && <em>{s.travelNote}</em>}
                 </button>
               ))}
             </div>
-
-            {selectedSlot && (
-              <div className="confirm-bar">
-                <div>
-                  <strong>Selected:</strong> {formatTime(selectedSlot.start)} –{" "}
-                  {formatTime(selectedSlot.end)}
-                </div>
-                <button
-                  className="btn primary"
-                  onClick={bookSlot}
-                  disabled={loading}
-                >
-                  {loading ? "Booking…" : "Confirm Booking →"}
-                </button>
-              </div>
-            )}
 
             {bookingError && <div className="error">{bookingError}</div>}
 
@@ -449,7 +403,7 @@ export default function App() {
               </div>
               <div className="detail-row">
                 <span>Address</span>
-                <strong>{form.address}</strong>
+                <strong>{fullAddress()}</strong>
               </div>
               <div className="detail-row">
                 <span>Service</span>
