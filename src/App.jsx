@@ -4,7 +4,7 @@ import logo from "./Back of Shirt Logo.png";
 // ─── CONFIG ─────────────────────────────────────────────────────────────────
 const CONFIG = {
   GOOGLE_MAPS_API_KEY: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
-  BUSINESS_NAME: import.meta.env.VITE_BUSINESS_NAME || "frog spash coatin",
+  BUSINESS_NAME: import.meta.env.VITE_BUSINESS_NAME || "Frog Splash Coatings",
   ESTIMATE_DURATION_MIN: 30,
   BUFFER_MIN: 15,
   // Mon–Fri 7:30 AM–6:00 PM | Sat 7:30 AM–1:00 PM (enforced server-side)
